@@ -77,6 +77,17 @@ type clientVersion struct {
 	Patch int
 }
 
+func applyClientVersion(version clientVersion) {
+	store.SetWAVersion(store.WAVersionContainer{
+		uint32(version.Major),
+		uint32(version.Minor),
+		uint32(version.Patch),
+	})
+	store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
+	store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
+	store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+}
+
 type whatsmeowService struct {
 	instanceRepository instance_repository.InstanceRepository
 	authDB             *sql.DB
@@ -406,9 +417,7 @@ func (w *whatsmeowService) StartClient(cd *ClientData) {
 		return
 	}
 	w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Applied whatsapp version %d.%d.%d", cd.Instance.Id, version.Major, version.Minor, version.Patch)
-	store.DeviceProps.Version.Primary = proto.Uint32(uint32(version.Major))
-	store.DeviceProps.Version.Secondary = proto.Uint32(uint32(version.Minor))
-	store.DeviceProps.Version.Tertiary = proto.Uint32(uint32(version.Patch))
+	applyClientVersion(version)
 
 	// 🔒 FIX: Sempre criar logger, mesmo que WaDebug esteja vazio
 	// Usar "INFO" como nível mínimo para garantir que logs importantes apareçam

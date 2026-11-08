@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"go.mau.fi/whatsmeow/store"
 )
 
 var errVersionUnavailable = errors.New("version unavailable")
@@ -72,5 +74,17 @@ func TestResolveClientVersionMakesFetchFailureExplicit(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "automatic WhatsApp Web version resolution failed") {
 		t.Fatalf("resolveClientVersion() error = %v, want explicit resolution error", err)
+	}
+}
+
+func TestApplyClientVersionUpdatesWhatsmeowHandshakeVersion(t *testing.T) {
+	original := store.GetWAVersion()
+	t.Cleanup(func() { store.SetWAVersion(original) })
+
+	applyClientVersion(clientVersion{Major: 2, Minor: 3000, Patch: 1053647598})
+
+	want := store.WAVersionContainer{2, 3000, 1053647598}
+	if got := store.GetWAVersion(); got != want {
+		t.Fatalf("store.GetWAVersion() = %v, want %v", got, want)
 	}
 }
