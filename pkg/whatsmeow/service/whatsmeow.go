@@ -40,7 +40,6 @@ import (
 	instance_model "github.com/evolution-foundation/evolution-go/pkg/instance/model"
 	instance_repository "github.com/evolution-foundation/evolution-go/pkg/instance/repository"
 	"github.com/evolution-foundation/evolution-go/pkg/internal/event_types"
-	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
 	label_repository "github.com/evolution-foundation/evolution-go/pkg/label/repository"
 	logger_wrapper "github.com/evolution-foundation/evolution-go/pkg/logger"
 	message_model "github.com/evolution-foundation/evolution-go/pkg/message/model"
@@ -2009,21 +2008,23 @@ func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
 		postMap["event"] = "LabelEdit"
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Got label edit %+v", mycli.userID, evt.Action)
 
-		label := label_model.Label{
-			InstanceID:   mycli.userID,
-			LabelID:      evt.LabelID,
-			LabelName:    utils.GetStringValue(evt.Action.Name),
-			LabelColor:   fmt.Sprintf("%d", evt.Action.Color),
-			PredefinedId: fmt.Sprintf("%d", evt.Action.PredefinedID),
-		}
-
-		err := mycli.labelRepository.UpsertLabel(label)
-		if err != nil {
+		label, deleted := labelFromEdit(mycli.userID, evt)
+		if deleted {
+			if err := mycli.labelRepository.DeleteLabelByLabelID(mycli.userID, evt.LabelID); err != nil {
+				mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to delete label: %v", mycli.userID, err)
+			}
+		} else if err := mycli.labelRepository.UpsertLabel(label); err != nil {
 			mycli.loggerWrapper.GetLogger(mycli.userID).LogError("[%s] Failed to upsert label: %v", mycli.userID, err)
 		}
 	case *events.LabelAssociationChat:
 		doWebhook = true
 		postMap["event"] = "LabelAssociationChat"
+		postMap["data"] = labelAssociationData(evt, func(lid types.JID) (types.JID, error) {
+			if mycli.WAClient == nil || mycli.WAClient.Store == nil || mycli.WAClient.Store.LIDs == nil {
+				return types.EmptyJID, nil
+			}
+			return mycli.WAClient.Store.LIDs.GetPNForLID(context.Background(), lid)
+		})
 
 		mycli.loggerWrapper.GetLogger(mycli.userID).LogInfo("[%s] Label association chat received %+v", mycli.userID, evt)
 	case *events.LabelAssociationMessage:

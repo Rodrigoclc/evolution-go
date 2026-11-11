@@ -9,6 +9,7 @@ The fork exists to carry narrowly scoped operational fixes required by Rodrigo's
 - bounded and shared PostgreSQL pools for WhatsApp device storage;
 - observable and testable WhatsApp Web version resolution;
 - regression coverage for QR pairing and reconnection;
+- on-demand full label resync (`POST /label/sync`), so labels and labeled chats that existed before pairing reach the label table and the webhook, with the phone-number JID (`JIDAlt`) for LID-addressed chats;
 - immutable images published to `ghcr.io/rodrigoclc/evolution-go`.
 
 ## Upstream synchronization

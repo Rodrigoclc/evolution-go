@@ -15,6 +15,7 @@ type LabelHandler interface {
 	ChatUnlabel(ctx *gin.Context)
 	MessageUnlabel(ctx *gin.Context)
 	GetLabels(ctx *gin.Context)
+	SyncLabels(ctx *gin.Context)
 }
 
 type labelHandler struct {
@@ -280,6 +281,32 @@ func (l *labelHandler) GetLabels(ctx *gin.Context) {
 	}
 
 	labels, err := l.labelService.GetLabels(instance)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, labels)
+}
+
+// Sync labels
+// @Summary Resync labels from WhatsApp
+// @Description Runs a full resync of labels and label-chat associations. Emits LabelEdit and LabelAssociationChat events (webhook for LABEL subscribers) and returns the current labels.
+// @Tags Label
+// @Produce json
+// @Success 200 {array} object "Labels after the resync"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /label/sync [post]
+func (l *labelHandler) SyncLabels(ctx *gin.Context) {
+	getInstance := ctx.MustGet("instance")
+
+	instance, ok := getInstance.(*instance_model.Instance)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "instance not found"})
+		return
+	}
+
+	labels, err := l.labelService.SyncLabels(instance)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
