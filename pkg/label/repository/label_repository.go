@@ -13,6 +13,7 @@ type LabelRepository interface {
 	DeleteLabel(id string) error
 	GetAllLabelsByInstanceID(instanceID string) ([]label_model.Label, error)
 	UpsertLabel(label label_model.Label) error
+	DeleteLabelByLabelID(instanceID string, labelID string) error
 }
 
 type labelRepository struct {
@@ -53,6 +54,11 @@ func (l *labelRepository) GetAllLabelsByInstanceID(instanceID string) ([]label_m
 		return nil, err
 	}
 	return labels, nil
+}
+
+// DeleteLabelByLabelID removes a label deleted on WhatsApp, identified by its WhatsApp label id.
+func (l *labelRepository) DeleteLabelByLabelID(instanceID string, labelID string) error {
+	return l.db.Where("instance_id = ? AND label_id = ?", instanceID, labelID).Delete(&label_model.Label{}).Error
 }
 
 func (l *labelRepository) UpsertLabel(label label_model.Label) error {

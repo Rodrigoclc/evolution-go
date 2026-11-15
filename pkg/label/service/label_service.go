@@ -22,6 +22,7 @@ type LabelService interface {
 	ChatUnlabel(data *ChatLabelStruct, instance *instance_model.Instance) error
 	MessageUnlabel(data *MessageLabelStruct, instance *instance_model.Instance) error
 	GetLabels(instance *instance_model.Instance) ([]label_model.Label, error)
+	SyncLabels(instance *instance_model.Instance) ([]label_model.Label, error)
 }
 
 type labelService struct {
