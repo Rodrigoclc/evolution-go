@@ -15,9 +15,10 @@ import (
 // labelSyncTimeout bounds the full resync of the "regular" app state collection.
 const labelSyncTimeout = 2 * time.Minute
 
-// forcedResyncMu serializes forced resyncs: the event emission option is a client field and must not be
-// toggled by concurrent calls.
-var forcedResyncMu sync.Mutex
+// forcedResyncLocks serializes forced resyncs per instance (key: instance id -> *sync.Mutex): the event
+// emission option is a client field and must not be toggled by concurrent calls for the same instance, while
+// different instances must not wait on each other.
+var forcedResyncLocks sync.Map
 
 // runWithFullSyncEvents enables event emission for full syncs only while run executes and restores the
 // previous value afterwards, on success or error.
@@ -26,9 +27,10 @@ var forcedResyncMu sync.Mutex
 // as the one right after QR pairing, unless EmitAppStateEventsOnFullSync is set. Without those events the
 // label table stays empty and chats that were already labeled never reach the webhook. Enabling the option
 // only here keeps the default instance behavior unchanged.
-func runWithFullSyncEvents(flag *bool, run func() error) error {
-	forcedResyncMu.Lock()
-	defer forcedResyncMu.Unlock()
+func runWithFullSyncEvents(key string, flag *bool, run func() error) error {
+	lock, _ := forcedResyncLocks.LoadOrStore(key, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
 
 	previous := *flag
 	*flag = true
@@ -46,11 +48,11 @@ func (l *labelService) SyncLabels(instance *instance_model.Instance) ([]label_mo
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), labelSyncTimeout)
-	defer cancel()
-
 	l.loggerWrapper.GetLogger(instance.Id).LogInfo("[%s] Starting full label resync (app state %s)", instance.Id, appstate.WAPatchRegular)
-	err = runWithFullSyncEvents(&client.EmitAppStateEventsOnFullSync, func() error {
+	err = runWithFullSyncEvents(instance.Id, &client.EmitAppStateEventsOnFullSync, func() error {
+		// The timeout starts only after the per-instance lock is held.
+		ctx, cancel := context.WithTimeout(context.Background(), labelSyncTimeout)
+		defer cancel()
 		return client.FetchAppState(ctx, appstate.WAPatchRegular, true, false)
 	})
 	if err != nil {

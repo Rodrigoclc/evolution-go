@@ -100,3 +100,26 @@ func TestLabelAssociationDataKeepsEventWhenNoPhoneIsNeededOrKnown(t *testing.T) 
 		t.Fatal("missing resolver must keep the original event")
 	}
 }
+
+func TestSkipFullSyncReplayKeepsOnlyLabelEvents(t *testing.T) {
+	cases := []struct {
+		name string
+		evt  interface{}
+		skip bool
+	}{
+		{"archive replayed by full sync", &events.Archive{FromFullSync: true}, true},
+		{"pin replayed by full sync", &events.Pin{FromFullSync: true}, true},
+		{"archive changed now", &events.Archive{FromFullSync: false}, false},
+		{"label edit from full sync", &events.LabelEdit{FromFullSync: true}, false},
+		{"label association from full sync", &events.LabelAssociationChat{FromFullSync: true}, false},
+		{"label on message from full sync", &events.LabelAssociationMessage{FromFullSync: true}, false},
+		{"event without FromFullSync", &events.Connected{}, false},
+		{"nil event", nil, false},
+		{"typed nil pointer", (*events.Archive)(nil), false},
+	}
+	for _, c := range cases {
+		if got := skipFullSyncReplay(c.evt); got != c.skip {
+			t.Errorf("%s: skip=%v, want %v", c.name, got, c.skip)
+		}
+	}
+}

@@ -869,6 +869,9 @@ func (mycli *MyClient) teardownQR(reason string, forceLogout bool) {
 }
 
 func (mycli *MyClient) myEventHandler(rawEvt interface{}) {
+	if skipFullSyncReplay(rawEvt) {
+		return
+	}
 	userID := mycli.userID
 	postMap := make(map[string]interface{})
 	postMap["data"] = rawEvt

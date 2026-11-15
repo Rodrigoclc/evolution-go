@@ -3,6 +3,7 @@ package whatsmeow_service
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	label_model "github.com/evolution-foundation/evolution-go/pkg/label/model"
 	"go.mau.fi/whatsmeow/types"
@@ -44,4 +45,26 @@ func labelAssociationData(evt *events.LabelAssociationChat, resolvePN func(types
 	}
 	data["JIDAlt"] = pn.ToNonAD().String()
 	return data
+}
+
+// skipFullSyncReplay reports whether rawEvt is a non-label app state event replayed by a full sync
+// (FromFullSync=true). Evolution GO only enables full-sync event emission for POST /label/sync, and the
+// collection it resyncs may also hold other app state (archive, pin, mute, ...). Those replays are dropped so
+// the label resync never notifies subscribers about chat state that did not change. Without the label resync
+// whatsmeow emits no FromFullSync events at all, so this keeps the default behavior unchanged.
+func skipFullSyncReplay(rawEvt interface{}) bool {
+	switch rawEvt.(type) {
+	case *events.LabelEdit, *events.LabelAssociationChat, *events.LabelAssociationMessage:
+		return false
+	}
+	v := reflect.ValueOf(rawEvt)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return false
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	field := v.FieldByName("FromFullSync")
+	return field.IsValid() && field.Kind() == reflect.Bool && field.Bool()
 }
